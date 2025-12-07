@@ -38,9 +38,11 @@ void paint()
 
     clear();
 
-    // 绘制左右边界线
+    // 计算新的左右边界（屏幕宽度的1/4和3/4）
     int left_bound = COLS / 4;
     int right_bound = COLS * 3 / 4;
+    
+    // 绘制左右边界线
     for (int i = 0; i < LINES; i++) {
         mvaddch(i, left_bound, '|');
         mvaddch(i, right_bound, '|');
@@ -57,10 +59,6 @@ void paint()
     bally += dy;
 
     // 碰撞检测与处理（边界、挡板、游戏结束）
-    // 计算新的左右边界（屏幕宽度的1/4和3/4）
-    int left_bound = COLS / 4;
-    int right_bound = COLS * 3 / 4;
-    
     // 碰撞左右边界：x方向反向
     if (ballx >= right_bound || ballx <= left_bound) {
         dx = -dx;
@@ -159,13 +157,15 @@ int main(int argc, char *argv[])
             case KEY_LEFT:  // 挡板左移
                 {
                     int left_bound = COLS / 4;
-                    barx = barx > left_bound ? barx - 1 : left_bound;
+                    int new_barx = barx - 2;
+                    barx = new_barx > left_bound ? new_barx : left_bound;
                     break;
                 }
             case KEY_RIGHT:  // 挡板右移
                 {
                     int right_bound = COLS * 3 / 4;
-                    barx = barx < right_bound - barlength ? barx + 1 : right_bound - barlength;
+                    int new_barx = barx + 2;
+                    barx = new_barx < right_bound - barlength ? new_barx : right_bound - barlength;
                     break;
                 }
             case 'n':  // 重新开始游戏
