@@ -13,6 +13,7 @@ int ballx, bally, dx, dy;
 int barx, bary, barlength;
 char ball, *bar;
 bool game_over;
+bool ball_launched;  // 标记弹珠是否已发射
 pthread_mutex_t mutex;  // 互斥锁（保护共享变量）
 WINDOW *bg_win;  // 后台窗口（双缓冲用）
 
@@ -26,18 +27,21 @@ void new_game()
     int left_bound = (COLS - game_width) / 2;
     int right_bound = left_bound + game_width - 1;
     
-    // 初始化球的参数
-    ballx = (left_bound + right_bound) / 2;
-    bally = LINES / 2;
-    dx = (rand() % 2) ? 1 : -1;  // 随机x方向（左/右）
-    dy = (rand() % 2) ? 1 : -1;  // 随机y方向（上/下）
-    ball = 'O';
-    
     // 初始化挡板参数
     barx = (left_bound + right_bound) / 2 - 5;
     bary = LINES - 1;
     barlength = 10;
     bar = "**********";
+    
+    // 初始化球的参数（固定在挡板正中央上方一格）
+    ballx = barx + barlength / 2;
+    bally = bary - 1;
+    ball = 'O';
+    
+    // 弹珠初始状态：未发射
+    ball_launched = false;
+    dx = (rand() % 3) - 1;  // 初始x方向速度：-1、0或1（随机）
+    dy = -1; // 初始y方向速度为向上（发射后使用）
     
     // 游戏状态
     game_over = false;
@@ -72,8 +76,15 @@ void* paint_thread(void* arg)
             mvwaddstr(bg_win, bary, barx, bar);
             
             // 更新球的坐标
-            ballx += dx;
-            bally += dy;
+            if (ball_launched) {
+                // 弹珠已发射，正常移动
+                ballx += dx;
+                bally += dy;
+            } else {
+                // 弹珠未发射，固定在挡板正中央上方一格
+                ballx = barx + barlength / 2;
+                bally = bary - 1;
+            }
             
             // 碰撞检测与处理
             // 碰撞左右边界：x方向反向
@@ -88,9 +99,23 @@ void* paint_thread(void* arg)
                 beep();
             }
             
-            // 碰撞挡板：y方向反向
+            // 碰撞挡板：y方向反向，并根据碰撞位置调整x方向
             if (bally == bary - 1 && ballx >= barx && ballx < barx + barlength) {
                 dy = -dy;
+                
+                // 根据碰撞位置调整x方向速度
+                int bar_center = barx + barlength / 2;
+                if (ballx < bar_center - 2) {
+                    // 碰撞挡板左侧，x方向向左
+                    dx = -1;
+                } else if (ballx > bar_center + 2) {
+                    // 碰撞挡板右侧，x方向向右
+                    dx = 1;
+                } else {
+                    // 碰撞挡板中心附近，x方向轻微调整（-1、0或1）
+                    dx = (rand() % 3) - 1;
+                }
+                
                 beep();
             }
             
@@ -187,6 +212,16 @@ int main()
                         if (barx + barlength > right_bound) {
                             barx = right_bound - barlength;
                         }
+                    }
+                    break;
+                case ' ':// 空格键发射弹珠
+                    if (!game_over && !ball_launched) {
+                        // 发射弹珠，设置为已发射状态
+                        ball_launched = true;
+                        // 随机x方向速度：-1、0或1，避免直线运动
+                        dx = (rand() % 3) - 1;
+                        // y方向速度向上
+                        dy = -1;
                     }
                     break;
                 case 'n':  // 重新开始（小写n）
