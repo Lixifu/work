@@ -18,11 +18,12 @@ pthread_mutex_t mutex;  // 互斥锁（保护共享变量）
 WINDOW *bg_win;  // 后台窗口（双缓冲用）
 
 // 砖块相关参数
-#define BRICK_ROWS 5  // 砖块行数
+#define BRICK_MAX_ROWS 7  // 最大砖块行数
 #define BRICK_WIDTH 5  // 每个砖块的宽度（5个'@'）
 #define BRICK_HEIGHT 1  // 每个砖块的高度
 #define BRICK_SPACING 1  // 砖块之间的间距（上下左右各1个空白）
-bool bricks[BRICK_ROWS][100];  // 砖块状态数组，true表示存在，false表示已销毁
+bool bricks[BRICK_MAX_ROWS][100];  // 砖块状态数组，true表示存在，false表示已销毁
+int brick_rows;  // 当前砖块行数（3-7之间随机）
 int brick_cols;  // 每行砖块数量
 
 // 计分系统
@@ -48,6 +49,18 @@ void write_high_score() {
         fprintf(fp, "%d", high_score);
         fclose(fp);
     }
+}
+
+// 检查场上是否还有砖块
+bool check_bricks_remaining() {
+    for (int i = 0; i < brick_rows; i++) {
+        for (int j = 0; j < brick_cols; j++) {
+            if (bricks[i][j]) {
+                return true;  // 还有砖块存在
+            }
+        }
+    }
+    return false;  // 所有砖块都已销毁
 }
 
 // 游戏初始化函数
@@ -83,10 +96,12 @@ void new_game()
     score = 0;
     
     // 初始化砖块
+    // 随机生成当前砖块行数（3-7之间）
+    brick_rows = (rand() % 5) + 3;  // 3到7行（含）
     // 计算每行砖块数量：(游戏区域宽度 - 左侧间距) / (砖块宽度 + 间距)
     brick_cols = (game_width - BRICK_SPACING) / (BRICK_WIDTH + BRICK_SPACING);
     // 初始化所有砖块为存在状态
-    for (int i = 0; i < BRICK_ROWS; i++) {
+    for (int i = 0; i < brick_rows; i++) {
         for (int j = 0; j < brick_cols; j++) {
             bricks[i][j] = true;
         }
@@ -97,13 +112,13 @@ void new_game()
 
 // 动态计算延迟时间（根据分数调整难度）
 long calculate_delay(int score) {
-    // 基础延迟100ms，每5分速度提高30%（延迟减少约23%），最低30ms
+    // 基础延迟100ms，每5分速度提高3%（延迟减少约2.9%），最低30ms
     long delay = 100;
     int speed_increase_count = score / 5;  // 每5分提高一次速度
     
-    // 每次速度提高30%，延迟 = 延迟 * 0.77（因为速度与延迟成反比）
+    // 每次速度提高3%，延迟 = 延迟 * 0.9709（因为速度与延迟成反比）
     for (int i = 0; i < speed_increase_count; i++) {
-        delay = (long)(delay * 0.77);  // 每次减少约23%的延迟
+        delay = (long)(delay * 0.9709);  // 每次减少约2.9%的延迟
         if (delay < 30) {
             break;  // 达到最低延迟，停止减少
         }
@@ -138,7 +153,7 @@ void* paint_thread(void* arg)
             }
             
             // 绘制砖块
-            for (int i = 0; i < BRICK_ROWS; i++) {
+            for (int i = 0; i < brick_rows; i++) {
                 for (int j = 0; j < brick_cols; j++) {
                     if (bricks[i][j]) {
                         // 计算砖块位置
@@ -206,7 +221,7 @@ void* paint_thread(void* arg)
             }
             
             // 碰撞砖块检测
-            for (int i = 0; i < BRICK_ROWS; i++) {
+            for (int i = 0; i < brick_rows; i++) {
                 for (int j = 0; j < brick_cols; j++) {
                     if (bricks[i][j]) {
                         // 计算砖块位置和边界
@@ -244,6 +259,19 @@ void* paint_thread(void* arg)
                         }
                     }
                 }
+            }
+            
+            // 检查是否需要刷新砖块（当所有砖块都被清除时）
+            if (!check_bricks_remaining()) {
+                // 随机生成新的砖块行数（3-7之间）
+                brick_rows = (rand() % 5) + 3;  // 3到7行（含）
+                // 初始化新的砖块
+                for (int i = 0; i < brick_rows; i++) {
+                    for (int j = 0; j < brick_cols; j++) {
+                        bricks[i][j] = true;
+                    }
+                }
+                beep();  // 发出声音提示
             }
             
             // 球落地：游戏结束
