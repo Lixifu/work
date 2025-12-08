@@ -17,6 +17,14 @@ bool ball_launched;  // 标记弹珠是否已发射
 pthread_mutex_t mutex;  // 互斥锁（保护共享变量）
 WINDOW *bg_win;  // 后台窗口（双缓冲用）
 
+// 砖块相关参数
+#define BRICK_ROWS 5  // 砖块行数
+#define BRICK_WIDTH 5  // 每个砖块的宽度（5个'@'）
+#define BRICK_HEIGHT 1  // 每个砖块的高度
+#define BRICK_SPACING 1  // 砖块之间的间距（上下左右各1个空白）
+bool bricks[BRICK_ROWS][100];  // 砖块状态数组，true表示存在，false表示已销毁
+int brick_cols;  // 每行砖块数量
+
 // 游戏初始化函数
 void new_game()
 {
@@ -46,6 +54,16 @@ void new_game()
     // 游戏状态
     game_over = false;
     
+    // 初始化砖块
+    // 计算每行砖块数量：(游戏区域宽度 - 左侧间距) / (砖块宽度 + 间距)
+    brick_cols = (game_width - BRICK_SPACING) / (BRICK_WIDTH + BRICK_SPACING);
+    // 初始化所有砖块为存在状态
+    for (int i = 0; i < BRICK_ROWS; i++) {
+        for (int j = 0; j < brick_cols; j++) {
+            bricks[i][j] = true;
+        }
+    }
+    
     //pthread_mutex_unlock(&mutex);  // 解锁
 }
 
@@ -69,6 +87,21 @@ void* paint_thread(void* arg)
             for (int i = 0; i < LINES; i++) {
                 mvwaddch(bg_win, i, left_bound, '|');
                 mvwaddch(bg_win, i, right_bound, '|');
+            }
+            
+            // 绘制砖块
+            for (int i = 0; i < BRICK_ROWS; i++) {
+                for (int j = 0; j < brick_cols; j++) {
+                    if (bricks[i][j]) {
+                        // 计算砖块位置
+                        int brick_x = left_bound + BRICK_SPACING + j * (BRICK_WIDTH + BRICK_SPACING);
+                        int brick_y = BRICK_SPACING + i * (BRICK_HEIGHT + BRICK_SPACING);
+                        // 绘制砖块（5个'@'）
+                        for (int k = 0; k < BRICK_WIDTH; k++) {
+                            mvwaddch(bg_win, brick_y, brick_x + k, '@');
+                        }
+                    }
+                }
             }
             
             // 绘制球和挡板
@@ -117,6 +150,38 @@ void* paint_thread(void* arg)
                 }
                 
                 beep();
+            }
+            
+            // 碰撞砖块检测
+            for (int i = 0; i < BRICK_ROWS; i++) {
+                for (int j = 0; j < brick_cols; j++) {
+                    if (bricks[i][j]) {
+                        // 计算砖块位置和边界
+                        int brick_x = left_bound + BRICK_SPACING + j * (BRICK_WIDTH + BRICK_SPACING);
+                        int brick_y = BRICK_SPACING + i * (BRICK_HEIGHT + BRICK_SPACING);
+                        int brick_right = brick_x + BRICK_WIDTH - 1;
+                        int brick_bottom = brick_y + BRICK_HEIGHT - 1;
+                        
+                        // 检测碰撞
+                        if (ballx >= brick_x && ballx <= brick_right && 
+                            bally >= brick_y && bally <= brick_bottom) {
+                            // 销毁砖块
+                            bricks[i][j] = false;
+                            
+                            // 弹珠反弹，与挡板和边界碰撞逻辑一致
+                            // 检测碰撞方向，决定反弹方向
+                            if (ballx == brick_x || ballx == brick_right) {
+                                dx = -dx;  // 左右碰撞，x方向反弹
+                            }
+                            if (bally == brick_y || bally == brick_bottom) {
+                                dy = -dy;  // 上下碰撞，y方向反弹
+                            }
+                            
+                            beep();
+                            break;  // 跳出内层循环，只处理一个砖块碰撞
+                        }
+                    }
+                }
             }
             
             // 球落地：游戏结束
