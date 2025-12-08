@@ -14,6 +14,7 @@ int barx, bary, barlength;
 char ball, *bar;
 bool game_over;
 pthread_mutex_t mutex;  // 互斥锁（保护共享变量）
+WINDOW *bg_win;  // 后台窗口（双缓冲用）
 
 // 游戏初始化函数
 void new_game()
@@ -53,7 +54,7 @@ void* paint_thread(void* arg)
         pthread_mutex_lock(&mutex);  // 加锁
         
         if (!game_over) {
-            clear();
+            wclear(bg_win);
             
             // 计算游戏区域边界（左右之间的距离为屏幕宽度的一半）
             int game_width = COLS / 2;
@@ -62,14 +63,13 @@ void* paint_thread(void* arg)
             
             // 绘制游戏区域边界
             for (int i = 0; i < LINES; i++) {
-                mvaddch(i, left_bound, '|');
-                mvaddch(i, right_bound, '|');
+                mvwaddch(bg_win, i, left_bound, '|');
+                mvwaddch(bg_win, i, right_bound, '|');
             }
             
             // 绘制球和挡板
-            mvaddch(bally, ballx, ball);
-            mvaddstr(bary, barx, bar);
-            refresh();
+            mvwaddch(bg_win, bally, ballx, ball);
+            mvwaddstr(bg_win, bary, barx, bar);
             
             // 更新球的坐标
             ballx += dx;
@@ -97,13 +97,15 @@ void* paint_thread(void* arg)
             // 球落地：游戏结束
             if (bally >= LINES - 1) {
                 game_over = true;
-                clear();
-                mvaddstr(LINES/2, COLS/2 - 5, "Game Over!");
-                mvaddstr(LINES/2 + 1, COLS/2 - 10, "Press 'N' to restart");
-                mvaddstr(LINES/2 + 2, COLS/2 - 8, "Press 'Q' to quit");
-                refresh();
+                wclear(bg_win);
+                mvwaddstr(bg_win, LINES/2, COLS/2 - 5, "Game Over!");
+                mvwaddstr(bg_win, LINES/2 + 1, COLS/2 - 10, "Press 'N' to restart");
+                mvwaddstr(bg_win, LINES/2 + 2, COLS/2 - 8, "Press 'Q' to quit");
             }
         }
+        
+        // 双缓冲刷新：将后台窗口内容刷新到前台
+        wrefresh(bg_win);
         
         pthread_mutex_unlock(&mutex);  // 解锁
         // 无论游戏是否结束，都使用较短的延迟，确保及时响应状态变化
@@ -125,6 +127,15 @@ int main()
     curs_set(0);
     nodelay(stdscr, TRUE);  // 启用非阻塞输入，提高响应速度
     srand(time(NULL));  // 随机数种子（用于球的初始方向）
+    
+    // 创建后台窗口（双缓冲）
+    bg_win = newwin(LINES, COLS, 0, 0);
+    if (bg_win == NULL) {
+        endwin();
+        fprintf(stderr, "Failed to create background window\n");
+        return -1;
+    }
+    keypad(bg_win, TRUE);  // 为后台窗口启用键盘支持
     
     // 初始化互斥锁
     pthread_mutex_init(&mutex, NULL);
@@ -195,6 +206,12 @@ int main()
     pthread_cancel(tidp);  // 终止绘图线程
     pthread_join(tidp, NULL);  // 等待线程结束
     pthread_mutex_destroy(&mutex);  // 销毁互斥锁
+    
+    // 销毁后台窗口（双缓冲）
+    if (bg_win != NULL) {
+        delwin(bg_win);
+        bg_win = NULL;
+    }
     
     endwin();
     return 0;
