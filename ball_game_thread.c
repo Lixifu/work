@@ -95,10 +95,30 @@ void new_game()
     //pthread_mutex_unlock(&mutex);  // 解锁
 }
 
+// 动态计算延迟时间（根据分数调整难度）
+long calculate_delay(int score) {
+    // 基础延迟100ms，每5分速度提高30%（延迟减少约23%），最低30ms
+    long delay = 100;
+    int speed_increase_count = score / 5;  // 每5分提高一次速度
+    
+    // 每次速度提高30%，延迟 = 延迟 * 0.77（因为速度与延迟成反比）
+    for (int i = 0; i < speed_increase_count; i++) {
+        delay = (long)(delay * 0.77);  // 每次减少约23%的延迟
+        if (delay < 30) {
+            break;  // 达到最低延迟，停止减少
+        }
+    }
+    
+    if (delay < 30) {
+        delay = 30;
+    }
+    return delay;
+}
+
 // 绘图线程函数（负责球的运动、碰撞检测和屏幕绘制）
 void* paint_thread(void* arg)
 {
-    long delay = 100;  // 绘制周期（毫秒）
+    long delay = 100;  // 初始绘制周期（毫秒）
     
     while (true) {
         pthread_mutex_lock(&mutex);  // 加锁
@@ -240,8 +260,10 @@ void* paint_thread(void* arg)
         wrefresh(bg_win);
         
         pthread_mutex_unlock(&mutex);  // 解锁
-        // 无论游戏是否结束，都使用较短的延迟，确保及时响应状态变化
-        usleep(delay * 1000);  // 正常游戏速度，100ms
+        // 动态调整延迟时间（根据当前分数）
+        delay = calculate_delay(score);
+        // 无论游戏是否结束，都使用动态延迟，确保及时响应状态变化
+        usleep(delay * 1000);
     }
     
     return NULL;
