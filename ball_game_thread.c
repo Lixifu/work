@@ -25,6 +25,31 @@ WINDOW *bg_win;  // 后台窗口（双缓冲用）
 bool bricks[BRICK_ROWS][100];  // 砖块状态数组，true表示存在，false表示已销毁
 int brick_cols;  // 每行砖块数量
 
+// 计分系统
+int score;  // 当前分数
+int high_score;  // 最高分
+#define HIGH_SCORE_FILE ".highscore"  // 保存最高分的文件名
+
+// 读取最高分函数
+void read_high_score() {
+    FILE *fp = fopen(HIGH_SCORE_FILE, "r");
+    if (fp != NULL) {
+        fscanf(fp, "%d", &high_score);
+        fclose(fp);
+    } else {
+        high_score = 0;  // 文件不存在，初始化为0
+    }
+}
+
+// 保存最高分函数
+void write_high_score() {
+    FILE *fp = fopen(HIGH_SCORE_FILE, "w");
+    if (fp != NULL) {
+        fprintf(fp, "%d", high_score);
+        fclose(fp);
+    }
+}
+
 // 游戏初始化函数
 void new_game()
 {
@@ -53,6 +78,9 @@ void new_game()
     
     // 游戏状态
     game_over = false;
+    
+    // 初始化分数
+    score = 0;
     
     // 初始化砖块
     // 计算每行砖块数量：(游戏区域宽度 - 左侧间距) / (砖块宽度 + 间距)
@@ -107,6 +135,11 @@ void* paint_thread(void* arg)
             // 绘制球和挡板
             mvwaddch(bg_win, bally, ballx, ball);
             mvwaddstr(bg_win, bary, barx, bar);
+            
+            // 显示最高分（当前分数正上方3个字符位置）
+            mvwprintw(bg_win, LINES - 8, 3, "High Score: %d", high_score);
+            // 显示分数（左下角：距离底部向上5个字符，距离左侧边界向右3个字符）
+            mvwprintw(bg_win, LINES - 5, 3, "Score: %d", score);
             
             // 更新球的坐标
             if (ball_launched) {
@@ -167,6 +200,15 @@ void* paint_thread(void* arg)
                             bally >= brick_y && bally <= brick_bottom) {
                             // 销毁砖块
                             bricks[i][j] = false;
+                            
+                            // 分数加1
+                            score++;
+                            
+                            // 检查是否更新最高分
+                            if (score > high_score) {
+                                high_score = score;
+                                write_high_score();  // 保存新的最高分
+                            }
                             
                             // 弹珠反弹，与挡板和边界碰撞逻辑一致
                             // 检测碰撞方向，决定反弹方向
@@ -229,6 +271,9 @@ int main()
     
     // 初始化互斥锁
     pthread_mutex_init(&mutex, NULL);
+    
+    // 读取最高分
+    read_high_score();
     
     // 开始新游戏
     pthread_mutex_lock(&mutex);
@@ -312,6 +357,9 @@ int main()
         delwin(bg_win);
         bg_win = NULL;
     }
+    
+    // 保存最高分
+    write_high_score();
     
     endwin();
     return 0;
