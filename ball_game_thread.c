@@ -139,7 +139,7 @@ void* paint_thread(void* arg)
         pthread_mutex_lock(&mutex);  // 加锁
         
         if (!game_over) {
-            wclear(bg_win);
+            werase(bg_win);
             
             // 计算游戏区域边界（左右之间的距离为屏幕宽度的一半）
             int game_width = COLS / 2;
@@ -287,7 +287,7 @@ void* paint_thread(void* arg)
             // 球落地：游戏结束
             if (bally >= LINES - 1) {
                 game_over = true;
-                wclear(bg_win);
+                werase(bg_win);
                 mvwaddstr(bg_win, LINES/2, COLS/2 - 5, "Game Over!");
                 mvwaddstr(bg_win, LINES/2 + 1, COLS/2 - 10, "Press 'N' to restart");
                 mvwaddstr(bg_win, LINES/2 + 2, COLS/2 - 8, "Press 'Q' to quit");
@@ -328,6 +328,9 @@ int main()
         return -1;
     }
     keypad(bg_win, TRUE);  // 为后台窗口启用键盘支持
+    // 【新增】告诉 ncurses 刷新后不要把物理光标移动回逻辑光标位置
+    // 这可以微弱提升性能并减少光标乱跳的可能性
+    leaveok(bg_win, TRUE);
     
     // 初始化互斥锁
     pthread_mutex_init(&mutex, NULL);
@@ -336,9 +339,9 @@ int main()
     read_high_score();
     
     // 开始新游戏
-    pthread_mutex_lock(&mutex);
+    //pthread_mutex_lock(&mutex);
     new_game();
-    pthread_mutex_unlock(&mutex);
+    //pthread_mutex_unlock(&mutex);
     
     // 创建绘图线程
     pthread_t tidp;
