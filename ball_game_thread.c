@@ -191,13 +191,17 @@ void* paint_thread(void* arg)
             // 碰撞左右边界：x方向反向
             if (ballx >= right_bound || ballx <= left_bound) {
                 dx = -dx;
-                beep();
+                if (ball_launched) {
+                    beep();
+                }
             }
             
             // 碰撞上边界：y方向反向
             if (bally < 0) {
                 dy = -dy;
-                beep();
+                if (ball_launched) {
+                    beep();
+                }
             }
             
             // 碰撞挡板：y方向反向，并根据碰撞位置调整x方向
@@ -217,7 +221,9 @@ void* paint_thread(void* arg)
                     dx = (rand() % 3) - 1;
                 }
                 
-                beep();
+                if (ball_launched) {
+                    beep();
+                }
             }
             
             // 碰撞砖块检测
@@ -254,7 +260,9 @@ void* paint_thread(void* arg)
                                 dy = -dy;  // 上下碰撞，y方向反弹
                             }
                             
-                            beep();
+                            if (ball_launched) {
+                                beep();
+                            }
                             break;  // 跳出内层循环，只处理一个砖块碰撞
                         }
                     }
@@ -271,7 +279,9 @@ void* paint_thread(void* arg)
                         bricks[i][j] = true;
                     }
                 }
-                beep();  // 发出声音提示
+                if (ball_launched) {
+                    beep();  // 发出声音提示
+                }
             }
             
             // 球落地：游戏结束
