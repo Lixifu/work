@@ -112,9 +112,9 @@ void new_game()
 
 // 动态计算延迟时间（根据分数调整难度）
 long calculate_delay(int score) {
-    // 基础延迟100ms，每5分速度提高3%（延迟减少约2.9%），最低30ms
+    // 基础延迟100ms，每3分速度提高3%（延迟减少约2.9%），最低30ms
     long delay = 100;
-    int speed_increase_count = score / 5;  // 每5分提高一次速度
+    int speed_increase_count = score / 3;  // 每3分提高一次速度
     
     // 每次速度提高3%，延迟 = 延迟 * 0.9709（因为速度与延迟成反比）
     for (int i = 0; i < speed_increase_count; i++) {
