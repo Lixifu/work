@@ -75,7 +75,7 @@ void new_game()
     
     // 初始化挡板参数
     barx = (left_bound + right_bound) / 2 - 5;
-    bary = LINES - 1;
+    bary = LINES - 3;  // 挡板向上移动2行，从LINES-1改为LINES-3
     barlength = 10;
     bar = "**********";
     
